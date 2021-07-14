@@ -1,0 +1,19 @@
+[package]
+name = "discord-types"
+version = "0.1.0"
+authors = ["kebabtent <kebabtent@gmail.com>"]
+description = "Asynchronous Rust library for the Discord API"
+license = "Apache-2.0"
+repository = "https://github.com/kebabtent/discord_types"
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+bitflags = "1.2"
+chrono = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_repr = "0.1"
+sqlx = { version = "0.5", optional = true }
+
+#[features]
+#runtime-tokio-rustls = ["sqlx/runtime-tokio-rustls"]
