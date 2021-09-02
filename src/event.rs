@@ -369,11 +369,14 @@ impl fmt::Display for Event {
 					Some(u) => format!("{}", u),
 					None => String::from("?"),
 				};
-				write!(
-					f,
-					"InteractionCreate(command={}, user={})",
-					e.interaction.data.name, user
-				)
+				let name = if let Some(n) = &e.interaction.data.name {
+					format!("command={}, ", n)
+				} else if let Some(i) = &e.interaction.data.custom_id {
+					format!("id={}, ", i)
+				} else {
+					String::new()
+				};
+				write!(f, "InteractionCreate({}user={})", name, user)
 			}
 			Event::VoiceStateUpdate(e) => {
 				write!(f, "VoiceStateUpdate")?;

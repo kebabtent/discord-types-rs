@@ -1,6 +1,6 @@
 pub use self::command::Command;
 use crate::types::SpeakingFlags;
-use crate::{GuildId, UserId};
+use crate::{CowString, GuildId, UserId};
 use serde::de;
 use serde::de::{IgnoredAny, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -228,8 +228,8 @@ pub mod command {
 		#[serde(rename = "server_id")]
 		pub guild_id: GuildId,
 		pub user_id: UserId,
-		pub session_id: String,
-		pub token: String,
+		pub session_id: CowString,
+		pub token: CowString,
 	}
 
 	impl From<Identify> for Command {
@@ -242,8 +242,8 @@ pub mod command {
 	pub struct Resume {
 		#[serde(rename = "server_id")]
 		pub guild_id: GuildId,
-		pub session_id: String,
-		pub token: String,
+		pub session_id: CowString,
+		pub token: CowString,
 	}
 
 	impl From<Resume> for Command {
@@ -272,14 +272,14 @@ pub mod command {
 
 	#[derive(Clone, Debug, Serialize)]
 	pub struct SelectProtocol {
-		pub protocol: String,
+		pub protocol: CowString,
 		pub data: SelectProtocolData,
 	}
 
 	#[derive(Clone, Debug, Serialize)]
 	pub struct SelectProtocolData {
-		pub address: String,
+		pub address: CowString,
 		pub port: u16,
-		pub mode: String,
+		pub mode: CowString,
 	}
 }

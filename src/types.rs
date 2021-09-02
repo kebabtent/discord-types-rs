@@ -1,12 +1,14 @@
-use chrono::{TimeZone, Utc};
+use crate::CowString;
+use chrono::{Duration, TimeZone, Utc};
 use serde::de::{Unexpected, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::cmp::{Ordering, PartialEq, PartialOrd};
 use std::collections::HashSet;
+use std::convert::TryFrom;
 use std::fmt;
 use std::num::ParseIntError;
-use std::ops::Deref;
+use std::ops::{Deref, Sub};
 use std::str::FromStr;
 
 const DISCORD_EPOCH: u64 = 1_420_070_400_000;
@@ -144,20 +146,47 @@ where
 	fn type_info() -> DB::TypeInfo {
 		i64::type_info()
 	}
+
+	fn compatible(ty: &DB::TypeInfo) -> bool {
+		i64::compatible(ty)
+	}
 }
 
 #[derive(Clone, Debug, Eq, Ord)]
-pub struct DateTime(pub chrono::DateTime<Utc>);
+pub struct DateTime(chrono::DateTime<Utc>);
 
 impl DateTime {
-	pub fn format<'a>(&self, fmt: &'a str) -> impl fmt::Display + 'a {
-		self.0.format(fmt)
+	pub fn now() -> Self {
+		Self(Utc::now())
+	}
+
+	pub fn time_passed(self) -> Duration {
+		Self::now() - self
+	}
+
+	pub fn into_inner(self) -> chrono::DateTime<Utc> {
+		self.0
+	}
+}
+
+impl Deref for DateTime {
+	type Target = chrono::DateTime<Utc>;
+	fn deref(&self) -> &Self::Target {
+		&self.0
 	}
 }
 
 impl PartialEq for DateTime {
 	fn eq(&self, other: &Self) -> bool {
 		PartialEq::eq(&self.0, &other.0)
+	}
+}
+
+impl Sub<DateTime> for DateTime {
+	type Output = Duration;
+
+	fn sub(self, rhs: DateTime) -> Duration {
+		self.0 - rhs.0
 	}
 }
 
@@ -198,6 +227,45 @@ impl<'de> Deserialize<'de> for DateTime {
 		}
 
 		deserializer.deserialize_any(DateTimeVisitor)
+	}
+}
+
+#[cfg(feature = "sqlx")]
+impl<'r, DB: sqlx::Database> sqlx::Decode<'r, DB> for DateTime
+where
+	i64: sqlx::Decode<'r, DB>,
+{
+	fn decode(
+		value: <DB as sqlx::database::HasValueRef<'r>>::ValueRef,
+	) -> Result<DateTime, Box<dyn std::error::Error + 'static + Send + Sync>> {
+		Ok(DateTime(Utc.timestamp(i64::decode(value)?, 0)))
+	}
+}
+
+#[cfg(feature = "sqlx")]
+impl<'q, DB: sqlx::Database> sqlx::Encode<'q, DB> for DateTime
+where
+	i64: sqlx::Encode<'q, DB>,
+{
+	fn encode_by_ref(
+		&self,
+		buf: &mut <DB as sqlx::database::HasArguments<'q>>::ArgumentBuffer,
+	) -> sqlx::encode::IsNull {
+		self.0.timestamp().encode_by_ref(buf)
+	}
+}
+
+#[cfg(feature = "sqlx")]
+impl<DB: sqlx::Database> sqlx::Type<DB> for DateTime
+where
+	i64: sqlx::Type<DB>,
+{
+	fn type_info() -> DB::TypeInfo {
+		i64::type_info()
+	}
+
+	fn compatible(ty: &DB::TypeInfo) -> bool {
+		i64::compatible(ty)
 	}
 }
 
@@ -301,6 +369,10 @@ macro_rules! id_type {
 			fn type_info() -> DB::TypeInfo {
 				i64::type_info()
 			}
+
+			fn compatible(ty: &DB::TypeInfo) -> bool {
+				i64::compatible(ty)
+			}
 		}
 	};
 }
@@ -309,7 +381,15 @@ macro_rules! id_types {
 	($($t:ident),+) => { $(id_type!($t);)+ }
 }
 
-id_types!(ApplicationId, ChannelId, GuildId, MessageId, RoleId, UserId);
+id_types!(
+	ApplicationId,
+	ChannelId,
+	GuildId,
+	InteractionId,
+	MessageId,
+	RoleId,
+	UserId
+);
 
 #[derive(Clone, Copy, Debug, Deserialize)]
 pub struct Application {
@@ -431,7 +511,7 @@ pub struct Guild {
 pub struct Role {
 	pub id: RoleId,
 	pub name: String,
-	pub color: u32,
+	pub color: Color,
 	pub hoist: bool,
 	pub position: u16,
 	pub permissions: String,
@@ -547,13 +627,18 @@ pub struct Message {
 	pub webhook_id: Option<Snowflake>,
 	#[serde(rename = "type")]
 	pub message_type: MessageType,
+	#[serde(default)]
+	pub interaction: Option<MessageInteraction>,
+	#[serde(default)]
+	pub components: Vec<Component>,
 	// activity
 	// application
 	// message_reference
 	// flags
-	// stickers
 	// referenced_message
-	// interaction
+	// thread
+	// sticker_items
+	// stickers
 }
 
 impl fmt::Display for Message {
@@ -568,19 +653,30 @@ impl From<&Message> for ChannelId {
 	}
 }
 
+#[derive(Clone, Debug, Deserialize)]
+pub struct MessageInteraction {
+	pub id: InteractionId,
+	#[serde(rename = "type")]
+	pub interaction_type: InteractionType,
+	pub name: String,
+	pub user: User,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Embed {
-	// title
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub title: Option<CowString>,
 	// type
 	// description
-	#[serde(default)]
-	pub url: Option<String>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub url: Option<CowString>,
 	// timestamp
-	// color
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub color: Option<Color>,
 	// footer
-	#[serde(default)]
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub image: Option<EmbedImage>,
-	#[serde(default)]
+	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub thumbnail: Option<EmbedThumbnail>,
 	// video
 	// provider
@@ -591,20 +687,32 @@ pub struct Embed {
 impl Embed {
 	pub fn new() -> Self {
 		Self {
+			title: None,
 			url: None,
+			color: None,
 			image: None,
 			thumbnail: None,
 		}
 	}
 
-	pub fn url(mut self, url: String) -> Self {
-		self.url = Some(url);
+	pub fn title<T: Into<CowString>>(mut self, title: T) -> Self {
+		self.title = Some(title.into());
 		self
 	}
 
-	pub fn image(mut self, url: String) -> Self {
+	pub fn url<T: Into<CowString>>(mut self, url: T) -> Self {
+		self.url = Some(url.into());
+		self
+	}
+
+	pub fn color<T: Into<Color>>(mut self, color: T) -> Self {
+		self.color = Some(color.into());
+		self
+	}
+
+	pub fn image<T: Into<CowString>>(mut self, url: T) -> Self {
 		self.image = Some(EmbedImage {
-			url: Some(url),
+			url: Some(url.into()),
 			height: None,
 			width: None,
 		});
@@ -615,7 +723,7 @@ impl Embed {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct EmbedImage {
 	#[serde(default)]
-	pub url: Option<String>,
+	pub url: Option<CowString>,
 	// #[serde(default)]
 	// pub proxy_url: Option<String>,
 	#[serde(default)]
@@ -627,7 +735,7 @@ pub struct EmbedImage {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct EmbedThumbnail {
 	#[serde(default)]
-	pub url: Option<String>,
+	pub url: Option<CowString>,
 	// #[serde(default)]
 	// pub proxy_url: Option<String>,
 	// #[serde(default)]
@@ -650,8 +758,8 @@ pub struct ApplicationCommand {
 pub struct ApplicationCommandOption {
 	#[serde(rename = "type")]
 	pub option_type: ApplicationCommandOptionType,
-	pub name: String,
-	pub description: String,
+	pub name: CowString,
+	pub description: CowString,
 	#[serde(default)]
 	pub required: bool,
 	#[serde(default)]
@@ -662,13 +770,14 @@ pub struct ApplicationCommandOption {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ApplicationCommandOptionChoice {
-	pub name: String,
-	pub value: String,
+	pub name: CowString,
+	pub value: CowString,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Interaction {
-	pub id: Snowflake,
+	pub id: InteractionId,
+	pub application_id: Snowflake,
 	#[serde(rename = "type")]
 	pub interaction_type: InteractionType,
 	pub data: InteractionData,
@@ -678,17 +787,36 @@ pub struct Interaction {
 	pub channel_id: Option<ChannelId>,
 	#[serde(default)]
 	pub member: Option<Member>,
+	#[serde(default)]
 	pub user: Option<User>,
 	pub token: String,
 	pub version: u8,
+	#[serde(default)]
+	pub message: Option<Message>,
+}
+
+impl Interaction {
+	pub fn is_command_interaction(&self) -> bool {
+		self.interaction_type == InteractionType::Component
+	}
+
+	pub fn is_component_interaction(&self) -> bool {
+		self.interaction_type == InteractionType::Component
+	}
 }
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct InteractionData {
-	pub id: Snowflake,
-	pub name: String,
+	#[serde(default)]
+	pub id: Option<Snowflake>,
+	#[serde(default)]
+	pub name: Option<String>,
 	#[serde(default)]
 	pub options: Vec<InteractionDataOption>,
+	#[serde(default)]
+	pub custom_id: Option<String>,
+	#[serde(default)]
+	pub component_type: Option<ComponentType>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -725,7 +853,7 @@ pub struct VoiceState {
 #[derive(Clone, Debug, Serialize)]
 pub struct AllowedMentions {
 	#[serde(skip_serializing_if = "Option::is_none")]
-	pub parse: Option<Vec<String>>,
+	pub parse: Option<Vec<CowString>>,
 }
 
 impl AllowedMentions {
@@ -733,6 +861,191 @@ impl AllowedMentions {
 		Self {
 			parse: Some(Vec::new()),
 		}
+	}
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Component {
+	#[serde(rename = "type")]
+	pub component_type: ComponentType,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub style: Option<ButtonStyle>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub label: Option<CowString>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub emoji: Option<ComponentEmoji>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub custom_id: Option<CowString>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub url: Option<CowString>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub disabled: Option<bool>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub default: Option<bool>,
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	pub components: Vec<Component>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ComponentEmoji {
+	#[serde(default)]
+	pub id: Option<Snowflake>,
+	#[serde(default)]
+	pub name: Option<CowString>,
+	#[serde(default)]
+	pub animated: bool,
+}
+
+impl From<emoji::Emoji> for ComponentEmoji {
+	fn from(emoji: emoji::Emoji) -> Self {
+		Self {
+			id: None,
+			name: Some(emoji.glyph.into()),
+			animated: false,
+		}
+	}
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct Color(u32);
+
+macro_rules! named_colors {
+	($($n:ident: $v:literal),+) => {
+		$(pub const $n: Color = Color($v);)+
+	};
+}
+
+impl Color {
+	named_colors!(
+		DEFAULT: 0x000000,
+		WHITE: 0xffffff,
+		AQUA: 0x1abc9c,
+		GREEN: 0x57f287,
+		BLUE: 0x3498db,
+		YELLOW: 0xfee75c,
+		PURPLE: 0x9b59b6,
+		LUMINOUS_VIVID_PINK: 0xe91e63,
+		FUCHSIA: 0xeb459e,
+		GOLD: 0xf1c40f,
+		ORANGE: 0xe67e22,
+		RED: 0xed4245,
+		GREY: 0x95a5a6,
+		NAVY: 0x34495e,
+		DARK_AQUA: 0x11806a,
+		DARK_GREEN: 0x1f8b4c,
+		DARK_BLUE: 0x206694,
+		DARK_PURPLE: 0x71368a,
+		DARK_VIVID_PINK: 0xad1457,
+		DARK_GOLD: 0xc27c0e,
+		DARK_ORANGE: 0xa84300,
+		DARK_RED: 0x992d22,
+		DARK_GREY: 0x979c9f,
+		DARKER_GREY: 0x7f8c8d,
+		LIGHT_GREY: 0xbcc0c0,
+		DARK_NAVY: 0x2c3e50,
+		BLURPLE: 0x5865f2,
+		GREYPLE: 0x99aab5,
+		DARK_BUT_NOT_BLACK: 0x2c2f33,
+		NOT_QUITE_BLACK: 0x23272a
+	);
+
+	pub fn from_rgb(r: u8, g: u8, b: u8) -> Self {
+		Color(((r as u32) << 16) + ((g as u32) << 8) + (b as u32))
+	}
+
+	pub fn rgb(self) -> [u8; 3] {
+		let v = self.0;
+		[
+			(v >> 16 & 0xFF) as u8,
+			(v >> 8 & 0xFF) as u8,
+			(v & 0xFF) as u8,
+		]
+	}
+}
+
+impl Default for Color {
+	fn default() -> Self {
+		Color::DEFAULT
+	}
+}
+
+impl fmt::Debug for Color {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let rgb = self.rgb();
+		f.debug_struct("Color")
+			.field("r", &rgb[0])
+			.field("g", &rgb[1])
+			.field("b", &rgb[2])
+			.finish()
+	}
+}
+
+impl fmt::Display for Color {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "#{:06x}", self.0)
+	}
+}
+
+impl TryFrom<u32> for Color {
+	type Error = ();
+	fn try_from(val: u32) -> Result<Self, ()> {
+		if val <= 0xFFFFFF {
+			Ok(Color(val))
+		} else {
+			Err(())
+		}
+	}
+}
+
+impl TryFrom<u64> for Color {
+	type Error = ();
+	fn try_from(val: u64) -> Result<Self, ()> {
+		if val <= u32::MAX as u64 {
+			Self::try_from(val as u32)
+		} else {
+			Err(())
+		}
+	}
+}
+
+impl From<Color> for u32 {
+	fn from(color: Color) -> u32 {
+		color.0
+	}
+}
+
+impl<'de> Deserialize<'de> for Color {
+	fn deserialize<D>(deserializer: D) -> Result<Color, D::Error>
+	where
+		D: Deserializer<'de>,
+	{
+		struct ColorVisitor;
+
+		impl<'de> Visitor<'de> for ColorVisitor {
+			type Value = Color;
+
+			fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+				formatter.write_str("24-bit integer")
+			}
+
+			fn visit_u64<E>(self, val: u64) -> Result<Color, E>
+			where
+				E: serde::de::Error,
+			{
+				Color::try_from(val).map_err(|_| E::custom("value out of range"))
+			}
+		}
+
+		deserializer.deserialize_u64(ColorVisitor)
+	}
+}
+
+impl Serialize for Color {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		serializer.serialize_u32(self.0)
 	}
 }
 
@@ -875,6 +1188,7 @@ pub enum ApplicationCommandOptionType {
 pub enum InteractionType {
 	Ping = 1,
 	Command = 2,
+	Component = 3,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize_repr, Eq, PartialEq, Serialize_repr)]
@@ -883,6 +1197,8 @@ pub enum InteractionResponseType {
 	Pong = 1,
 	ChannelMessage = 4,
 	DeferredChannelMessage = 5,
+	DeferredUpdateMessage = 6,
+	UpdateMessage = 7,
 }
 
 bitflags::bitflags! {
@@ -893,6 +1209,24 @@ bitflags::bitflags! {
 		const SOUNDSHARE = 1 << 1;
 		const PRIORITY = 1 << 2;
 	}
+}
+
+#[derive(Clone, Copy, Debug, Deserialize_repr, Eq, PartialEq, Serialize_repr)]
+#[repr(u8)]
+pub enum ComponentType {
+	ActionRow = 1,
+	Button = 2,
+	SelectMenu = 3,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize_repr, Eq, PartialEq, Serialize_repr)]
+#[repr(u8)]
+pub enum ButtonStyle {
+	Primary = 1,
+	Secondary = 2,
+	Success = 3,
+	Danger = 4,
+	Link = 5,
 }
 
 #[cfg(test)]

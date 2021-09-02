@@ -69,11 +69,14 @@ Y = Yes, P = Partial
 | Message            | P     |
 | ApplicationCommand | Y     |
 | Interaction        | P     |
+| Component          | P     |
 
-| Enums       | Impl? |
-| ----------- |:-----:|
-| Intents     | Y     |
-| Status      | Y     |
-| ChannelType | Y     |
-| UserFlags   | Y     |
-| MessageType | Y     |
+| Enums         | Impl? |
+| ------------- |:-----:|
+| Intents       | Y     |
+| Status        | Y     |
+| ChannelType   | Y     |
+| UserFlags     | Y     |
+| MessageType   | Y     |
+| ComponentType | Y     |
+| ButtonStyle   | Y     |

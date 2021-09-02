@@ -11,6 +11,7 @@ edition = "2018"
 [dependencies]
 bitflags = "1.2"
 chrono = "0.4"
+emoji = "0.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_repr = "0.1"
 sqlx = { version = "0.5", optional = true }

@@ -1,4 +1,4 @@
-use crate::{ChannelId, GuildId, Intents, Status, UserId};
+use crate::{ChannelId, CowString, GuildId, Intents, Status, UserId};
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 use std::collections::HashSet;
@@ -72,7 +72,7 @@ impl Serialize for Command {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Identify {
-	pub token: String,
+	pub token: CowString,
 	pub properties: ConnectionProperties,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub compress: Option<bool>,
@@ -96,8 +96,8 @@ impl From<Identify> for Command {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Resume {
-	pub token: String,
-	pub session_id: String,
+	pub token: CowString,
+	pub session_id: CowString,
 	pub seq: u64,
 }
 
@@ -134,14 +134,14 @@ impl From<u64> for Heartbeat {
 #[derive(Clone, Debug, Serialize)]
 pub struct RequestGuildMembers {
 	pub guild_id: GuildId,
-	pub query: String,
+	pub query: CowString,
 	pub limit: u32,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub presences: Option<bool>,
 	#[serde(skip_serializing_if = "HashSet::is_empty")]
 	pub user_ids: HashSet<UserId>,
 	#[serde(skip_serializing_if = "Option::is_none")]
-	pub nonce: Option<String>,
+	pub nonce: Option<CowString>,
 }
 
 impl From<RequestGuildMembers> for Command {
@@ -181,9 +181,9 @@ impl From<UpdateStatus> for Command {
 #[derive(Clone, Debug, Serialize)]
 pub struct ConnectionProperties {
 	#[serde(rename = "$os")]
-	pub os: String,
+	pub os: CowString,
 	#[serde(rename = "$browser")]
-	pub browser: String,
+	pub browser: CowString,
 	#[serde(rename = "$device")]
-	pub device: String,
+	pub device: CowString,
 }

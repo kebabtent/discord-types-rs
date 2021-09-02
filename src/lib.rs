@@ -7,3 +7,5 @@ pub mod event;
 pub mod request;
 mod types;
 pub mod voice;
+
+pub(crate) type CowString = std::borrow::Cow<'static, str>;
