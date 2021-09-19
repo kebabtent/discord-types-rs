@@ -262,6 +262,13 @@ impl Event {
 			_ => false,
 		}
 	}
+
+	pub fn is_invalid_session(&self) -> bool {
+		match self {
+			Event::InvalidSession(_) => true,
+			_ => false,
+		}
+	}
 }
 
 impl fmt::Display for Event {
