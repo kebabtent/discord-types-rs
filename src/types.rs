@@ -667,10 +667,12 @@ pub struct Embed {
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub title: Option<CowString>,
 	// type
-	// description
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub description: Option<CowString>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub url: Option<CowString>,
-	// timestamp
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub timestamp: Option<chrono::DateTime<Utc>>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub color: Option<Color>,
 	// footer
@@ -688,7 +690,9 @@ impl Embed {
 	pub fn new() -> Self {
 		Self {
 			title: None,
+			description: None,
 			url: None,
+			timestamp: None,
 			color: None,
 			image: None,
 			thumbnail: None,
@@ -700,8 +704,18 @@ impl Embed {
 		self
 	}
 
+	pub fn description<T: Into<CowString>>(mut self, description: T) -> Self {
+		self.description = Some(description.into());
+		self
+	}
+
 	pub fn url<T: Into<CowString>>(mut self, url: T) -> Self {
 		self.url = Some(url.into());
+		self
+	}
+
+	pub fn timestamp<T: Into<chrono::DateTime<Utc>>>(mut self, timestamp: T) -> Self {
+		self.timestamp = Some(timestamp.into());
 		self
 	}
 
@@ -896,12 +910,36 @@ pub struct ComponentEmoji {
 	pub animated: bool,
 }
 
-impl From<emoji::Emoji> for ComponentEmoji {
-	fn from(emoji: emoji::Emoji) -> Self {
+impl From<&emoji::Emoji> for ComponentEmoji {
+	fn from(emoji: &emoji::Emoji) -> Self {
 		Self {
 			id: None,
 			name: Some(emoji.glyph.into()),
 			animated: false,
+		}
+	}
+}
+
+impl From<Snowflake> for ComponentEmoji {
+	fn from(id: Snowflake) -> Self {
+		Self {
+			id: Some(id),
+			name: None,
+			animated: false,
+		}
+	}
+}
+
+impl TryFrom<String> for ComponentEmoji {
+	type Error = ();
+
+	fn try_from(value: String) -> Result<Self, Self::Error> {
+		if let Ok(id) = value.parse::<Snowflake>() {
+			Ok(id.into())
+		} else if let Some(emoji) = emoji::lookup_by_glyph::lookup(&value) {
+			Ok(emoji.into())
+		} else {
+			Err(())
 		}
 	}
 }
@@ -1005,6 +1043,22 @@ impl TryFrom<u64> for Color {
 		} else {
 			Err(())
 		}
+	}
+}
+
+impl FromStr for Color {
+	type Err = ();
+	fn from_str(mut val: &str) -> Result<Self, Self::Err> {
+		if val.starts_with("#") {
+			val = &val[1..];
+		} else if val.starts_with("0x") {
+			val = &val[2..];
+		}
+		if val.len() != 6 {
+			return Err(());
+		}
+		let val = u32::from_str_radix(val, 16).map_err(|_| ())?;
+		Self::try_from(val)
 	}
 }
 
@@ -1189,6 +1243,16 @@ pub enum InteractionType {
 	Ping = 1,
 	Command = 2,
 	Component = 3,
+}
+
+impl InteractionType {
+	pub fn is_command_interaction(&self) -> bool {
+		self == &InteractionType::Command
+	}
+
+	pub fn is_component_interaction(&self) -> bool {
+		self == &InteractionType::Component
+	}
 }
 
 #[derive(Clone, Copy, Debug, Deserialize_repr, Eq, PartialEq, Serialize_repr)]
