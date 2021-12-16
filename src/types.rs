@@ -619,7 +619,8 @@ pub struct Message {
 	// pub mention_channels: Vec<ChannelMention>,
 	// attachments
 	// embeds
-	// reactions
+	#[serde(default)]
+	pub reactions: Vec<Reaction>,
 	// nonce
 	#[serde(default)]
 	pub pinned: bool,
@@ -758,6 +759,13 @@ pub struct EmbedThumbnail {
 	// pub width: Option<u32>,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Reaction {
+	pub count: u64,
+	pub me: bool,
+	pub emoji: PartialEmoji,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct ApplicationCommand {
 	pub id: Snowflake,
@@ -887,7 +895,7 @@ pub struct Component {
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub label: Option<CowString>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
-	pub emoji: Option<ComponentEmoji>,
+	pub emoji: Option<PartialEmoji>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
 	pub custom_id: Option<CowString>,
 	#[serde(default, skip_serializing_if = "Option::is_none")]
@@ -901,7 +909,7 @@ pub struct Component {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct ComponentEmoji {
+pub struct PartialEmoji {
 	#[serde(default)]
 	pub id: Option<Snowflake>,
 	#[serde(default)]
@@ -910,7 +918,7 @@ pub struct ComponentEmoji {
 	pub animated: bool,
 }
 
-impl From<&emoji::Emoji> for ComponentEmoji {
+impl From<&emoji::Emoji> for PartialEmoji {
 	fn from(emoji: &emoji::Emoji) -> Self {
 		Self {
 			id: None,
@@ -920,7 +928,7 @@ impl From<&emoji::Emoji> for ComponentEmoji {
 	}
 }
 
-impl From<Snowflake> for ComponentEmoji {
+impl From<Snowflake> for PartialEmoji {
 	fn from(id: Snowflake) -> Self {
 		Self {
 			id: Some(id),
@@ -930,7 +938,7 @@ impl From<Snowflake> for ComponentEmoji {
 	}
 }
 
-impl TryFrom<String> for ComponentEmoji {
+impl TryFrom<String> for PartialEmoji {
 	type Error = ();
 
 	fn try_from(value: String) -> Result<Self, Self::Error> {
