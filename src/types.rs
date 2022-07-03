@@ -836,6 +836,8 @@ pub struct InteractionData {
 	#[serde(default)]
 	pub options: Vec<InteractionDataOption>,
 	#[serde(default)]
+	pub values: Vec<String>,
+	#[serde(default)]
 	pub custom_id: Option<String>,
 	#[serde(default)]
 	pub component_type: Option<ComponentType>,
@@ -906,6 +908,22 @@ pub struct Component {
 	pub default: Option<bool>,
 	#[serde(default, skip_serializing_if = "Vec::is_empty")]
 	pub components: Vec<Component>,
+	#[serde(default, skip_serializing_if = "Vec::is_empty")]
+	pub options: Vec<SelectOption>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub placeholder: Option<CowString>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SelectOption {
+	pub label: CowString,
+	pub value: CowString,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub description: Option<CowString>,
+	#[serde(default, skip_serializing_if = "Option::is_none")]
+	pub emoji: Option<PartialEmoji>,
+	#[serde(default)]
+	pub default: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
