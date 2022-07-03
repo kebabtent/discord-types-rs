@@ -1132,7 +1132,7 @@ impl Serialize for Color {
 bitflags::bitflags! {
 	#[derive(Deserialize, Serialize)]
 	#[serde(transparent)]
-	pub struct Intents: u16 {
+	pub struct Intents: u32 {
 		const GUILDS = 1 << 0;
 		const GUILD_MEMBERS = 1 << 1;
 		const GUILD_BANS = 1 << 2;
@@ -1148,15 +1148,20 @@ bitflags::bitflags! {
 		const DIRECT_MESSAGES = 1 << 12;
 		const DIRECT_MESSAGE_REACTIONS = 1 << 13;
 		const DIRECT_MESSAGE_TYPING = 1 << 14;
+		const MESSAGE_CONTENT = 1 << 15;
+		const GUILD_SCHEDULED_EVENTS = 1 << 16;
+		const AUTO_MODERATION_CONFIGURATION = 1 << 20;
+		const AUTO_MODERATION_EXECUTION = 1 << 21;
 
 		const GUILD_ALL = Self::GUILDS.bits | Self::GUILD_MEMBERS.bits | Self::GUILD_BANS.bits |
 			Self::GUILD_EMOJIS.bits | Self::GUILD_INTEGRATIONS.bits | Self::GUILD_WEBHOOKS.bits |
 			Self::GUILD_INVITES.bits | Self::GUILD_VOICE_STATES.bits | Self::GUILD_PRESENCES.bits |
 			Self::GUILD_MESSAGES.bits | Self::GUILD_MESSAGE_REACTIONS.bits |
-			Self::GUILD_MESSAGE_TYPING.bits;
+			Self::GUILD_MESSAGE_TYPING.bits | Self::GUILD_SCHEDULED_EVENTS.bits;
 		const DIRECT_MESSAGE_ALL = Self::DIRECT_MESSAGES.bits | Self::DIRECT_MESSAGE_REACTIONS.bits |
 			Self::DIRECT_MESSAGE_TYPING.bits;
-		const ALL = Self::GUILD_ALL.bits | Self::DIRECT_MESSAGE_ALL.bits;
+		const ALL = Self::GUILD_ALL.bits | Self::DIRECT_MESSAGE_ALL.bits | Self::MESSAGE_CONTENT.bits |
+			Self::AUTO_MODERATION_CONFIGURATION.bits | Self::AUTO_MODERATION_EXECUTION.bits;
 	}
 }
 
