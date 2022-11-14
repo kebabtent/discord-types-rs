@@ -1190,6 +1190,8 @@ pub enum ChannelType {
 	GuildPublicThread = 11,
 	GuildPrivateThread = 12,
 	GuildStageVoice = 13,
+	GuildDirectory = 14,
+	GuildForum = 15,
 }
 
 bitflags::bitflags! {
