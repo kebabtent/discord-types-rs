@@ -1,5 +1,6 @@
+use crate::bitflags::BitFlagsVisitor;
 use crate::CowString;
-use chrono::{Duration, TimeZone, Utc};
+use chrono::{Duration, LocalResult, TimeZone, Utc};
 use serde::de::{Unexpected, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -19,7 +20,7 @@ pub struct Snowflake(u64);
 impl Snowflake {
 	pub fn date_time(&self) -> DateTime {
 		let timestamp = (self.0 >> 22) + DISCORD_EPOCH;
-		Utc.timestamp_millis(timestamp as i64).into()
+		Utc.timestamp_millis_opt(timestamp as i64).unwrap().into()
 	}
 
 	pub fn worker(&self) -> u8 {
@@ -238,7 +239,10 @@ where
 	fn decode(
 		value: <DB as sqlx::database::HasValueRef<'r>>::ValueRef,
 	) -> Result<DateTime, Box<dyn std::error::Error + 'static + Send + Sync>> {
-		Ok(DateTime(Utc.timestamp(i64::decode(value)?, 0)))
+		match Utc.timestamp_opt(i64::decode(value)?, 0) {
+			LocalResult::Single(dt) => Ok(DateTime(dt)),
+			_ => Err(format!("Invalid date").into()),
+		}
 	}
 }
 
@@ -1130,8 +1134,8 @@ impl Serialize for Color {
 }
 
 bitflags::bitflags! {
-	#[derive(Deserialize, Serialize)]
-	#[serde(transparent)]
+	#[repr(transparent)]
+	#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy)]
 	pub struct Intents: u32 {
 		const GUILDS = 1 << 0;
 		const GUILD_MEMBERS = 1 << 1;
@@ -1153,15 +1157,27 @@ bitflags::bitflags! {
 		const AUTO_MODERATION_CONFIGURATION = 1 << 20;
 		const AUTO_MODERATION_EXECUTION = 1 << 21;
 
-		const GUILD_ALL = Self::GUILDS.bits | Self::GUILD_MEMBERS.bits | Self::GUILD_BANS.bits |
-			Self::GUILD_EMOJIS.bits | Self::GUILD_INTEGRATIONS.bits | Self::GUILD_WEBHOOKS.bits |
-			Self::GUILD_INVITES.bits | Self::GUILD_VOICE_STATES.bits | Self::GUILD_PRESENCES.bits |
-			Self::GUILD_MESSAGES.bits | Self::GUILD_MESSAGE_REACTIONS.bits |
-			Self::GUILD_MESSAGE_TYPING.bits | Self::GUILD_SCHEDULED_EVENTS.bits;
-		const DIRECT_MESSAGE_ALL = Self::DIRECT_MESSAGES.bits | Self::DIRECT_MESSAGE_REACTIONS.bits |
-			Self::DIRECT_MESSAGE_TYPING.bits;
-		const ALL = Self::GUILD_ALL.bits | Self::DIRECT_MESSAGE_ALL.bits | Self::MESSAGE_CONTENT.bits |
-			Self::AUTO_MODERATION_CONFIGURATION.bits | Self::AUTO_MODERATION_EXECUTION.bits;
+		const GUILD_ALL = Self::GUILDS.bits() | Self::GUILD_MEMBERS.bits() | Self::GUILD_BANS.bits() |
+			Self::GUILD_EMOJIS.bits() | Self::GUILD_INTEGRATIONS.bits() | Self::GUILD_WEBHOOKS.bits() |
+			Self::GUILD_INVITES.bits() | Self::GUILD_VOICE_STATES.bits() | Self::GUILD_PRESENCES.bits() |
+			Self::GUILD_MESSAGES.bits() | Self::GUILD_MESSAGE_REACTIONS.bits() |
+			Self::GUILD_MESSAGE_TYPING.bits() | Self::GUILD_SCHEDULED_EVENTS.bits();
+		const DIRECT_MESSAGE_ALL = Self::DIRECT_MESSAGES.bits() | Self::DIRECT_MESSAGE_REACTIONS.bits() |
+			Self::DIRECT_MESSAGE_TYPING.bits();
+		const ALL = Self::GUILD_ALL.bits() | Self::DIRECT_MESSAGE_ALL.bits() | Self::MESSAGE_CONTENT.bits() |
+			Self::AUTO_MODERATION_CONFIGURATION.bits() | Self::AUTO_MODERATION_EXECUTION.bits();
+	}
+}
+
+impl serde::Serialize for Intents {
+	fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+		serializer.serialize_u32(self.bits())
+	}
+}
+
+impl<'de> serde::Deserialize<'de> for Intents {
+	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+		deserializer.deserialize_u32(BitFlagsVisitor::new())
 	}
 }
 
@@ -1195,8 +1211,8 @@ pub enum ChannelType {
 }
 
 bitflags::bitflags! {
-	#[derive(Deserialize, Serialize)]
-	#[serde(transparent)]
+	#[repr(transparent)]
+	#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy)]
 	pub struct UserFlags: u32 {
 		const DISCORD_EMPLOYEE = 1 << 0;
 		const DISCORD_PARTNER = 1 << 1;
@@ -1211,6 +1227,18 @@ bitflags::bitflags! {
 		const BUG_HUNTER_LEVEL_2 = 1 << 14;
 		const VERIFIED_BOT = 1 << 16;
 		const VERIFIED_BOT_DEVELOPER = 1 << 17;
+	}
+}
+
+impl serde::Serialize for UserFlags {
+	fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+		serializer.serialize_u32(self.bits())
+	}
+}
+
+impl<'de> serde::Deserialize<'de> for UserFlags {
+	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+		deserializer.deserialize_u32(BitFlagsVisitor::new())
 	}
 }
 
@@ -1246,14 +1274,20 @@ impl MessageType {
 }
 
 bitflags::bitflags! {
-	#[derive(Deserialize)]
-	#[serde(transparent)]
+	#[repr(transparent)]
+	#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy)]
 	pub struct MessageFlags: u32 {
 		const CROSSPOSTED = 1 << 0;
 		const IS_CROSSPOST = 1 << 1;
 		const SUPPRESS_EMBEDS = 1 << 2;
 		const SOURCE_MESSAGE_DELETED = 1 << 3;
 		const URGENT = 1 << 4;
+	}
+}
+
+impl<'de> serde::Deserialize<'de> for MessageFlags {
+	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+		deserializer.deserialize_u32(BitFlagsVisitor::new())
 	}
 }
 
@@ -1299,12 +1333,24 @@ pub enum InteractionResponseType {
 }
 
 bitflags::bitflags! {
-	#[derive(Deserialize, Serialize)]
-	#[serde(transparent)]
-	pub struct SpeakingFlags: u8 {
+	#[repr(transparent)]
+	#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy)]
+	pub struct SpeakingFlags: u32 {
 		const MICROPHONE = 1 << 0;
 		const SOUNDSHARE = 1 << 1;
 		const PRIORITY = 1 << 2;
+	}
+}
+
+impl serde::Serialize for SpeakingFlags {
+	fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+		serializer.serialize_u32(self.bits())
+	}
+}
+
+impl<'de> serde::Deserialize<'de> for SpeakingFlags {
+	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+		deserializer.deserialize_u32(BitFlagsVisitor::new())
 	}
 }
 
@@ -1329,14 +1375,25 @@ pub enum ButtonStyle {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use chrono::NaiveDate;
+	use serde_test::{assert_tokens, Configure, Token};
 
 	#[test]
 	fn snowflake() {
 		let id = Snowflake(175_928_847_299_117_063);
-		let time = Utc.ymd(2016, 04, 30).and_hms_milli(11, 18, 25, 796);
-		assert_eq!(id.date_time(), time);
+		let time = NaiveDate::from_ymd_opt(2016, 4, 30)
+			.unwrap()
+			.and_hms_milli_opt(11, 18, 25, 796)
+			.unwrap();
+		let time: chrono::DateTime<Utc> = chrono::DateTime::from_utc(time, Utc);
+		assert_eq!(id.date_time().into_inner(), time);
 		assert_eq!(id.worker(), 1);
 		assert_eq!(id.process(), 0);
 		assert_eq!(id.increment(), 7);
+	}
+
+	#[test]
+	fn bitflags() {
+		assert_tokens(&(Intents::GUILD_ALL).readable(), &[Token::U32(69631)]);
 	}
 }
