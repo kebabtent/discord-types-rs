@@ -1227,6 +1227,9 @@ bitflags::bitflags! {
 		const BUG_HUNTER_LEVEL_2 = 1 << 14;
 		const VERIFIED_BOT = 1 << 16;
 		const VERIFIED_BOT_DEVELOPER = 1 << 17;
+		const CERTIFIED_MODERATOR = 1 << 18;
+		const BOT_HTTP_INTERACTIONS = 1 << 19;
+		const ACTIVE_DEVELOPER = 1 << 22;
 	}
 }
 
@@ -1401,5 +1404,11 @@ mod tests {
 	fn user() {
 		let json = r#"{"verified":true,"username":"[DEV] Galaxy of Dreams","mfa_enabled":true,"id":"292738137426362368","global_name":null,"flags":0,"email":null,"discriminator":"6948","bot":true,"avatar":null}"#;
 		let user: User = serde_json::from_str(json).unwrap();
+	}
+
+	#[test]
+	fn member() {
+		let json = r#"{"user":{"username":"anon","public_flags":4195072,"id":"1","global_name":"anon","display_name":"anon","discriminator":"0","bot":false,"avatar_decoration":null},"roles":[],"premium_since":null,"pending":false,"nick":null,"mute":false,"joined_at":"2023-01-01T00:00:00.000000+00:00","flags":0,"deaf":false,"communication_disabled_until":null,"avatar":null}"#;
+		let member: Member = serde_json::from_str(json).unwrap();
 	}
 }
