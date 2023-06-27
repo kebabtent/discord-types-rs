@@ -18,10 +18,11 @@ impl<'de, T: BitFlags<Bits = u32>> Visitor<'de> for BitFlagsVisitor<T> {
 		formatter.write_str("bitflags")
 	}
 
-	fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
+	fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
 	where
 		E: Error,
 	{
-		T::from_bits(v).ok_or_else(|| E::custom("invalid value"))
+		T::from_bits(v.try_into().map_err(|_| E::custom("invalid value"))?)
+			.ok_or_else(|| E::custom("invalid value"))
 	}
 }

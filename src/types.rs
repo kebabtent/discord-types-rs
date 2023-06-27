@@ -1232,13 +1232,13 @@ bitflags::bitflags! {
 
 impl serde::Serialize for UserFlags {
 	fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-		serializer.serialize_u32(self.bits())
+		serializer.serialize_u64(self.bits() as u64)
 	}
 }
 
 impl<'de> serde::Deserialize<'de> for UserFlags {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		deserializer.deserialize_u32(BitFlagsVisitor::new())
+		deserializer.deserialize_u64(BitFlagsVisitor::new())
 	}
 }
 
@@ -1395,5 +1395,11 @@ mod tests {
 	#[test]
 	fn bitflags() {
 		assert_tokens(&(Intents::GUILD_ALL).readable(), &[Token::U32(69631)]);
+	}
+
+	#[test]
+	fn user() {
+		let json = r#"{"verified":true,"username":"[DEV] Galaxy of Dreams","mfa_enabled":true,"id":"292738137426362368","global_name":null,"flags":0,"email":null,"discriminator":"6948","bot":true,"avatar":null}"#;
+		let user: User = serde_json::from_str(json).unwrap();
 	}
 }
