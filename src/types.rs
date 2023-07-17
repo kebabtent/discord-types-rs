@@ -1,6 +1,6 @@
 use crate::bitflags::BitFlagsVisitor;
 use crate::CowString;
-use chrono::{Duration, LocalResult, TimeZone, Utc};
+use chrono::{Duration, TimeZone, Utc};
 use serde::de::{Unexpected, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -1208,6 +1208,8 @@ pub enum ChannelType {
 	GuildStageVoice = 13,
 	GuildDirectory = 14,
 	GuildForum = 15,
+	#[serde(other)]
+	Unknown = 255,
 }
 
 bitflags::bitflags! {
@@ -1263,14 +1265,32 @@ pub enum MessageType {
 	ChannelFollowAdd = 12,
 	GuildDiscoveryDisqualified = 14,
 	GuildDiscoveryRequalified = 15,
+	GuildDiscoveryGracePeriodInitialWarning = 16,
+	GuildDiscoveryGracePeriodFinalWarning = 17,
+	ThreadCreated = 18,
 	Reply = 19,
 	ApplicationCommand = 20,
+	ThreadStarterMessage = 21,
+	GuildInviteReminder = 22,
+	ContextMenuCommand = 23,
+	AutoModerationAction = 24,
+	RoleSubscriptionPurchase = 25,
+	InteractionPremiumUpsell = 26,
+	StageStart = 27,
+	StageEnd = 28,
+	StageSpeaker = 29,
+	StageTopic = 31,
+	GuildApplicationPremiumSubscription = 32,
+	#[serde(other)]
+	Unknown = 255,
 }
 
 impl MessageType {
 	pub fn is_textual(&self) -> bool {
 		match self {
-			Self::Default | Self::Reply | Self::ApplicationCommand => true,
+			Self::Default | Self::Reply | Self::ApplicationCommand | Self::ThreadStarterMessage => {
+				true
+			}
 			_ => false,
 		}
 	}
@@ -1305,6 +1325,8 @@ pub enum ApplicationCommandOptionType {
 	User = 6,
 	Channel = 7,
 	Role = 8,
+	#[serde(other)]
+	Unknown = 255,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize_repr, Eq, PartialEq, Serialize_repr)]
@@ -1313,6 +1335,8 @@ pub enum InteractionType {
 	Ping = 1,
 	Command = 2,
 	Component = 3,
+	#[serde(other)]
+	Unknown = 255,
 }
 
 impl InteractionType {
@@ -1333,6 +1357,8 @@ pub enum InteractionResponseType {
 	DeferredChannelMessage = 5,
 	DeferredUpdateMessage = 6,
 	UpdateMessage = 7,
+	#[serde(other)]
+	Unknown = 255,
 }
 
 bitflags::bitflags! {
@@ -1362,7 +1388,14 @@ impl<'de> serde::Deserialize<'de> for SpeakingFlags {
 pub enum ComponentType {
 	ActionRow = 1,
 	Button = 2,
-	SelectMenu = 3,
+	StringSelect = 3,
+	TextInput = 4,
+	UserSelect = 5,
+	RoleSelect = 6,
+	MentionableSelect = 7,
+	ChannelSelect = 8,
+	#[serde(other)]
+	Unknown = 255,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize_repr, Eq, PartialEq, Serialize_repr)]
@@ -1373,6 +1406,8 @@ pub enum ButtonStyle {
 	Success = 3,
 	Danger = 4,
 	Link = 5,
+	#[serde(other)]
+	Unknown = 255,
 }
 
 #[cfg(test)]
