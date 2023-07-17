@@ -240,7 +240,7 @@ where
 		value: <DB as sqlx::database::HasValueRef<'r>>::ValueRef,
 	) -> Result<DateTime, Box<dyn std::error::Error + 'static + Send + Sync>> {
 		match Utc.timestamp_opt(i64::decode(value)?, 0) {
-			LocalResult::Single(dt) => Ok(DateTime(dt)),
+			chrono::LocalResult::Single(dt) => Ok(DateTime(dt)),
 			_ => Err(format!("Invalid date").into()),
 		}
 	}
