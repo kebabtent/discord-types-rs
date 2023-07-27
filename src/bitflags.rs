@@ -11,7 +11,7 @@ impl<T> BitFlagsVisitor<T> {
 	}
 }
 
-impl<'de, T: BitFlags<Bits = u32>> Visitor<'de> for BitFlagsVisitor<T> {
+impl<'de, T: BitFlags<Bits = u64>> Visitor<'de> for BitFlagsVisitor<T> {
 	type Value = T;
 
 	fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -22,7 +22,8 @@ impl<'de, T: BitFlags<Bits = u32>> Visitor<'de> for BitFlagsVisitor<T> {
 	where
 		E: Error,
 	{
-		T::from_bits(v.try_into().map_err(|_| E::custom("invalid value"))?)
-			.ok_or_else(|| E::custom("invalid value"))
+		Ok(T::from_bits_truncate(
+			v.try_into().map_err(|_| E::custom("invalid value"))?,
+		))
 	}
 }

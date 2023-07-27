@@ -559,7 +559,8 @@ impl fmt::Display for Member {
 pub struct User {
 	pub id: UserId,
 	pub username: String,
-	pub discriminator: String,
+	#[serde(default)]
+	pub discriminator: Option<String>,
 	pub avatar: Option<String>,
 	#[serde(default)]
 	pub bot: Option<bool>,
@@ -593,7 +594,10 @@ impl User {
 
 impl fmt::Display for User {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "{}#{}", self.username, self.discriminator)
+		match &self.discriminator {
+			Some(d) if d != "0" => write!(f, "{}#{}", self.username, d),
+			_ => write!(f, "{}", self.username),
+		}
 	}
 }
 
@@ -1136,7 +1140,7 @@ impl Serialize for Color {
 bitflags::bitflags! {
 	#[repr(transparent)]
 	#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy)]
-	pub struct Intents: u32 {
+	pub struct Intents: u64 {
 		const GUILDS = 1 << 0;
 		const GUILD_MEMBERS = 1 << 1;
 		const GUILD_BANS = 1 << 2;
@@ -1171,13 +1175,13 @@ bitflags::bitflags! {
 
 impl serde::Serialize for Intents {
 	fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-		serializer.serialize_u32(self.bits())
+		serializer.serialize_u64(self.bits())
 	}
 }
 
 impl<'de> serde::Deserialize<'de> for Intents {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		deserializer.deserialize_u32(BitFlagsVisitor::new())
+		deserializer.deserialize_u64(BitFlagsVisitor::new())
 	}
 }
 
@@ -1215,7 +1219,7 @@ pub enum ChannelType {
 bitflags::bitflags! {
 	#[repr(transparent)]
 	#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy)]
-	pub struct UserFlags: u32 {
+	pub struct UserFlags: u64 {
 		const DISCORD_EMPLOYEE = 1 << 0;
 		const DISCORD_PARTNER = 1 << 1;
 		const HYPESQUAD_EVENTS = 1 << 2;
@@ -1299,7 +1303,7 @@ impl MessageType {
 bitflags::bitflags! {
 	#[repr(transparent)]
 	#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy)]
-	pub struct MessageFlags: u32 {
+	pub struct MessageFlags: u64 {
 		const CROSSPOSTED = 1 << 0;
 		const IS_CROSSPOST = 1 << 1;
 		const SUPPRESS_EMBEDS = 1 << 2;
@@ -1310,7 +1314,7 @@ bitflags::bitflags! {
 
 impl<'de> serde::Deserialize<'de> for MessageFlags {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		deserializer.deserialize_u32(BitFlagsVisitor::new())
+		deserializer.deserialize_u64(BitFlagsVisitor::new())
 	}
 }
 
@@ -1364,7 +1368,7 @@ pub enum InteractionResponseType {
 bitflags::bitflags! {
 	#[repr(transparent)]
 	#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy)]
-	pub struct SpeakingFlags: u32 {
+	pub struct SpeakingFlags: u64 {
 		const MICROPHONE = 1 << 0;
 		const SOUNDSHARE = 1 << 1;
 		const PRIORITY = 1 << 2;
@@ -1373,13 +1377,13 @@ bitflags::bitflags! {
 
 impl serde::Serialize for SpeakingFlags {
 	fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-		serializer.serialize_u32(self.bits())
+		serializer.serialize_u64(self.bits())
 	}
 }
 
 impl<'de> serde::Deserialize<'de> for SpeakingFlags {
 	fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-		deserializer.deserialize_u32(BitFlagsVisitor::new())
+		deserializer.deserialize_u64(BitFlagsVisitor::new())
 	}
 }
 
@@ -1432,18 +1436,18 @@ mod tests {
 
 	#[test]
 	fn bitflags() {
-		assert_tokens(&(Intents::GUILD_ALL).readable(), &[Token::U32(69631)]);
+		assert_tokens(&(Intents::GUILD_ALL).readable(), &[Token::U64(69631)]);
 	}
 
 	#[test]
 	fn user() {
 		let json = r#"{"verified":true,"username":"[DEV] Galaxy of Dreams","mfa_enabled":true,"id":"292738137426362368","global_name":null,"flags":0,"email":null,"discriminator":"6948","bot":true,"avatar":null}"#;
-		let user: User = serde_json::from_str(json).unwrap();
+		let _user: User = serde_json::from_str(json).unwrap();
 	}
 
 	#[test]
 	fn member() {
 		let json = r#"{"user":{"username":"anon","public_flags":4195072,"id":"1","global_name":"anon","display_name":"anon","discriminator":"0","bot":false,"avatar_decoration":null},"roles":[],"premium_since":null,"pending":false,"nick":null,"mute":false,"joined_at":"2023-01-01T00:00:00.000000+00:00","flags":0,"deaf":false,"communication_disabled_until":null,"avatar":null}"#;
-		let member: Member = serde_json::from_str(json).unwrap();
+		let _member: Member = serde_json::from_str(json).unwrap();
 	}
 }
